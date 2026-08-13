@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2023-2026 WangBin <wbsecg1 at gmail.com>
+ * AI participated
  */
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -133,6 +134,22 @@ FvpPlugin::FvpPlugin(flutter::TextureRegistrar* tr, IDXGIAdapter* adapter)
 
 FvpPlugin::~FvpPlugin() {}
 
+// Reuse one device across players (no per-player state). A device per CreateRT
+// lives until that TexturePlayer dies, stacking ~30–40MB driver heaps per item.
+bool FvpPlugin::ensureDevice() {
+    if (dev_) {
+        HRESULT hr = S_OK;
+        MS_WARN(hr = dev_->GetDeviceRemovedReason());
+        if (SUCCEEDED(hr))
+            return true;
+    }
+    MS_ENSURE(D3D11CreateDevice(adapter_.Get(), adapter_ ? D3D_DRIVER_TYPE_UNKNOWN : D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &dev_, nullptr, &ctx_), false);
+    ComPtr<ID3D10Multithread> mt;
+    if (SUCCEEDED(dev_.As(&mt)))
+        mt->SetMultithreadProtected(TRUE);
+    return true;
+}
+
 void FvpPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
@@ -141,14 +158,10 @@ void FvpPlugin::HandleMethodCall(
       const auto width = (UINT)args[flutter::EncodableValue("width")].LongValue();
       const auto height = (UINT)args[flutter::EncodableValue("height")].LongValue();
 
-      MS_WARN(D3D11CreateDevice(adapter_.Get(), adapter_ ? D3D_DRIVER_TYPE_UNKNOWN : D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &dev_, nullptr, &ctx_));
-      if (!dev_) {
+      if (!ensureDevice()) {
           result->Error("device", "create device failed");
           return;
       }
-      ComPtr<ID3D10Multithread> mt;
-      if (SUCCEEDED(dev_.As(&mt)))
-          mt->SetMultithreadProtected(TRUE);
       D3D11_TEXTURE2D_DESC desc{
         .Width = width,
         .Height = height,

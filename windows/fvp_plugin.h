@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2023-2026 WangBin <wbsecg1 at gmail.com>
+ * AI participated
  */
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -38,6 +39,8 @@ class FvpPlugin : public flutter::Plugin {
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
+  bool ensureDevice();
 
   flutter::TextureRegistrar* texture_registrar_ = nullptr;
 
